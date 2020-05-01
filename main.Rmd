@@ -216,12 +216,12 @@ designMat<- model.matrix(~0+Group, pData(eset_filtered))
 colnames(designMat) <- sub("Group","", colnames(designMat))
 print(designMat)
 
-cont.matrix <- makeContrasts (D12vsM12 = ((DOHV12a+DOHV12b)-(Mock12a+Mock12b))-((Mock12a-Mock12b)),
-                              D24vsM24 = ((DOHV24a+DOHV24b)-(Mock24a+Mock24b))-((Mock24a-Mock24b)),
-                              D48vsM48 = ((DOHV48a+DOHV48b)-(Mock48a+Mock48b))-((Mock48a-Mock48b)),
-                              S12vsM12 = ((SarsCoV12a+SarsCoV12b)-(Mock12a+Mock12b))-((Mock12a-Mock12b)),
-                              S24vsM24 = ((SarsCoV24a+SarsCoV24b)-(Mock24a+Mock24b))-((Mock24a-Mock24b)),
-                              S48vsM48 = ((SarsCoV48a+SarsCoV48b)-(Mock48a+Mock48b))-((Mock48a-Mock48b)),
+cont.matrix <- makeContrasts (D12vsM12 = ((DOHV12a+DOHV12b)-(Mock12a+Mock12b))-((Mock12a-Mock12b))*1.5,
+                              D24vsM24 = ((DOHV24a+DOHV24b)-(Mock24a+Mock24b))-((Mock24a-Mock24b))*1.5,
+                              D48vsM48 = ((DOHV48a+DOHV48b)-(Mock48a+Mock48b))-((Mock48a-Mock48b))*1.5,
+                              S12vsM12 = ((SarsCoV12a+SarsCoV12b)-(Mock12a+Mock12b))-((Mock12a-Mock12b))*1.5,
+                              S24vsM24 = ((SarsCoV24a+SarsCoV24b)-(Mock24a+Mock24b))-((Mock24a-Mock24b))*1.5,
+                              S48vsM48 = ((SarsCoV48a+SarsCoV48b)-(Mock48a+Mock48b))-((Mock48a-Mock48b))*1.5,
                               levels=designMat)
 print(cont.matrix)
 
@@ -281,12 +281,15 @@ abline(v=c(-1,1))
 ```{r}
 
 res<-decideTests(fit.main, method="separate", adjust.method="fdr", p.value=0.05, lfc=1.5)
-sum.res.rows<-apply(abs(res),1,sum)
-res.selected<-res[sum.res.rows!=0,] 
+sum.res.rows<-apply(res,1,sum)
+res.up<-res[sum.res.rows>0,] 
+res.down<-res[sum.res.rows<0,] 
 print(summary(res))
 
-vennDiagram (res.selected[,1:3], cex=0.9)
-title("Genes in common between the three comparisons\n Genes selected with FDR < 0.05 and logFC > 1.5")
+vennDiagram (res.up[,1:3], cex=0.9)
+title("Genes in common between the three comparisons\n Genes up regulated with FDR < 0.05 and logFC > 1.5")
+vennDiagram (res.down[,1:3], cex=0.9)
+title("Genes in common between the three comparisons\n Genes down regulated with FDR < 0.05 and logFC > 1.5")
 ```
 
 
