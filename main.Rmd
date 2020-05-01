@@ -2,7 +2,9 @@
 title: "Case-Study-for-ADO-PCE-1"
 author: "Pío Sierra"
 date: "30/4/2020"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -52,6 +54,9 @@ if(!(require(ReactomePA)))
 
 El estudio va a ser sobre
 https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE17400
+Study:
+https://www.ncbi.nlm.nih.gov/pubmed/20090954
+
 Y procedemos a descargar los archivos.
 
 Utilizamos los datos de 
@@ -68,6 +73,10 @@ utils::untar("data.tar", exdir = "data")
 ```
 
 ## 1. Identificar que grupos hay y a qué grupo pertenece cada muestra.
+
+"For statistical purposes, all 27 arrays were analyzed as 18 separate groups (mock-, SARS-CoV-infected, and DHOV-infected cells at 12, 24, and 48 hrs)." 
+
+Following thar criteria we create 18 group, with the 9 different combinations an using the sets 1 and 2 for the new set "a" and the set 3 for the new set "b".
 
 ```{r}
 targets <- read.csv2("targets.csv", header = TRUE, sep = ";") 
@@ -119,9 +128,9 @@ colorsd <- brewer.pal(9, "Spectral")
 
 plotPCA3(exprs(rawData), labels = targets$ShortName, factor = targets$Group, 
          title="Raw data", scale = FALSE, size = 3, 
-         colores = c(rep(colorsq[1], 3),
-                     rep(colorsq[2], 3),
-                     rep(colorsq[3], 3)))
+         colores = c(rep(colorsq[1], 6),
+                     rep(colorsq[2], 6),
+                     rep(colorsq[3], 6)))
 ```
 Observamos la distribución de intensidad de los arrays observando los boxplots.
 
@@ -158,9 +167,9 @@ arrayQualityMetrics(eset_rma, outdir = file.path("./results", "QCDir.Norm"), for
 ```{r}
 plotPCA3(exprs(eset_rma), labels = targets$ShortName, factor = targets$Group, 
          title="Normalized data", scale = FALSE, size = 3, 
-         colores = c(rep(colorsq[1], 3),
-                     rep(colorsq[2], 3),
-                     rep(colorsq[3], 3)))
+         colores = c(rep(colorsq[1], 6),
+                     rep(colorsq[2], 6),
+                     rep(colorsq[3], 6)))
 
 boxplot(eset_rma, cex.axis=0.5, las=2,  which="all", 
          col = c(rep(colorsd[1], 3), 
@@ -204,13 +213,14 @@ if (!exists("eset_filtered")) load (file="./results/normalized.Data.Rda")
 
 require(limma)
 designMat<- model.matrix(~0+Group, pData(eset_filtered))
-colnames(designMat) <- c("DOHV12", "DOHV24", "DOHV48", "Mock12", "Mock24", "Mock48",
-                         "SarsCoV12", "SarsCoV24", "SarsCoV48")
+colnames(designMat) <- sub("Group","", colnames(designMat))
 print(designMat)
 
-cont.matrix <- makeContrasts (D12vsM12 = DOHV12-Mock12,
-                             S12vsM12 = SarsCoV12-Mock12,
-                             levels=designMat)
+cont.matrix <- makeContrasts (M12avsM12b = Mock12a - Mock12b,
+                              M24avsM24b = Mock24a - Mock24b,
+                              M48avsM48b = Mock48a - Mock48b,
+                              D12vsM12 = (DOHV12a+DOHV12b)-(Mock12a+Mock12b),
+                              levels=designMat)
 print(cont.matrix)
 
 require(limma)
@@ -219,6 +229,8 @@ fit.main<-contrasts.fit(fit, cont.matrix)
 fit.main<-eBayes(fit.main)
 class(fit.main)
 
+topTab_M12avsM12b <- topTable (fit.main, number=nrow(fit.main), coef="M12avsM12b", adjust="fdr") 
+head(topTab_M12avsM12b)
 topTab_D12vsM12 <- topTable (fit.main, number=nrow(fit.main), coef="D12vsM12", adjust="fdr") 
 head(topTab_D12vsM12)
 
