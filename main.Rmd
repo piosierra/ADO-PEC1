@@ -30,6 +30,10 @@ if(!(require(colorspace)))
   install.packages("colorspace")
 if(!(require(gplots))) 
   install.packages("gplots")
+if(!(require(magrittr))) 
+  install.packages("magrittr")
+if(!(require(clusterProfiler))) 
+  install.packages("clusterProfiler")
 if(!(require(RColorBrewer))) 
   install.packages("RColorBrewer")
 if(!(require(ggplot2))) 
@@ -330,3 +334,68 @@ write.csv(HMdata, file = file.path("./results/data4Heatmap.csv"))
 
 
 9. Análisis de significación biológica (“Gene Enrichment Analysis”)
+
+
+```{r selectGenes}
+listOfTables <- list(KOvsWT.COLD = topTab_KOvsWT.COLD, 
+                     KOvsWT.RT  = topTab_KOvsWT.RT, 
+                     INT = topTab_INT)
+listOfSelected <- list()
+for (i in 1:length(listOfTables)){
+  # select the toptable
+  topTab <- listOfTables[[i]]
+  # select the genes to be included in the analysis
+  whichGenes<-topTab["adj.P.Val"]<0.15
+  selectedIDs <- rownames(topTab)[whichGenes]
+  # convert the ID to Entrez
+  EntrezIDs<- select(mogene21sttranscriptcluster.db, selectedIDs, c("ENTREZID"))
+  EntrezIDs <- EntrezIDs$ENTREZID
+  listOfSelected[[i]] <- EntrezIDs
+  names(listOfSelected)[i] <- names(listOfTables)[i]
+}
+sapply(listOfSelected, length)
+```
+
+```{r}
+mapped_genes2GO <- mappedkeys(org.Mm.egGO)
+mapped_genes2KEGG <- mappedkeys(org.Mm.egPATH)
+mapped_genes <- union(mapped_genes2GO , mapped_genes2KEGG)
+```
+
+```{r BiologicalSig}
+require(ReactomePA)
+listOfData <- listOfSelected[1:2]
+comparisonsNames <- names(listOfData)
+universe <- mapped_genes
+for (i in 1:length(listOfData)){
+  genesIn <- listOfData[[i]]
+  comparison <- comparisonsNames[i]
+  enrich.result <- enrichPathway(gene = genesIn,
+                                 pvalueCutoff = 0.05,
+                                 readable = T,
+                                 pAdjustMethod = "BH",
+                                 organism = "mouse",
+                                 universe = universe)
+  
+  cat("##################################")
+cat("\nComparison: ", comparison,"\n")
+print(head(enrich.result))
+if (length(rownames(enrich.result@result)) != 0) {
+  write.csv(as.data.frame(enrich.result), 
+            file =paste0("./results/","ReactomePA.Results.",comparison,".csv"), 
+            row.names = FALSE)
+  
+  pdf(file=paste0("./results/","ReactomePABarplot.",comparison,".pdf"))
+  print(barplot(enrich.result, showCategory = 15, font.size = 4, 
+                title = paste0("Reactome Pathway Analysis for ", comparison,". Barplot")))
+  dev.off()
+  
+  pdf(file = paste0("./results/","ReactomePAcnetplot.",comparison,".pdf"))
+  print(cnetplot(enrich.result, categorySize = "geneNum", schowCategory = 15, 
+                 vertex.label.cex = 0.75))
+  dev.off()
+}
+}
+```
+
+
