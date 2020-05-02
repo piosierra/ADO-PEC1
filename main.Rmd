@@ -225,14 +225,14 @@ cont.matrix <- makeContrasts (D12vsM12 = ((DOHV12a+DOHV12b)-(Mock12a+Mock12b))-(
                               M12=Mock12a-Mock12b,
                               M24=Mock24a-Mock24b,
                               M48=Mock48a-Mock48b,
-                              D12vsM12t=((DOHV12a+DOHV12b)-(Mock12a+Mock12b)),
-                              D24vsM24t=((DOHV24a+DOHV24b)-(Mock24a+Mock24b)),
-                              D48vsM48t=((DOHV48a+DOHV48b)-(Mock48a+Mock48b)),
+                              S12vsM12t=((SarsCoV12a+SarsCoV12b)-(Mock12a+Mock12b)),
+                              S24vsM24t=((SarsCoV24a+SarsCoV24b)-(Mock24a+Mock24b)),
+                              S48vsM48t=((SarsCoV48a+SarsCoV48b)-(Mock48a+Mock48b)),
                               levels=designMat)
 print(cont.matrix)
 ```
 ```{r}
-cont.names <- c("D12vsM12","D24vsM24", "D48vsM48", "S12vsM12", "S24vsM24", "S48vsM48","M12", "M24", "M48", "D12vsM12t","D24vsM24t", "D48vsM48t")
+cont.names <- c("D12vsM12","D24vsM24", "D48vsM48", "S12vsM12", "S24vsM24", "S48vsM48","M12", "M24", "M48", "S12vsM12t","S24vsM24t", "S48vsM48t")
 cont.n <- length(cont.names)
 require(limma)
 fit<-lmFit(eset_filtered, designMat)
@@ -302,10 +302,16 @@ res.down<-res[sum.res.rows<0,]
 res.selected<- res[sum.res.rows!=0,]
 print(summary(res))
 
-vennDiagram (res.up[,1:3], cex=0.9)
+vennDiagram (res.up[,4:6], cex=0.9)
 title("Genes in common between the three comparisons\n Genes up regulated with FDR < 0.05 and logFC > 1.5")
-vennDiagram (res.down[,1:3], cex=0.9)
+vennDiagram (res.down[,4:6], cex=0.9)
 title("Genes in common between the three comparisons\n Genes down regulated with FDR < 0.05 and logFC > 1.5")
+
+vennDiagram (res.up[,10:12], cex=0.9)
+title("Genes in common between the three comparisons\n Genes up regulated with FDR < 0.05 and logFC > 1.5")
+vennDiagram (res.down[,10:12], cex=0.9)
+title("Genes in common between the three comparisons\n Genes down regulated with FDR < 0.05 and logFC > 1.5")
+
 ```
 
 Heatmaps
