@@ -30,10 +30,14 @@ if(!(require(colorspace)))
   install.packages("colorspace")
 if(!(require(gplots))) 
   install.packages("gplots")
+if(!(require(ggupset))) 
+  install.packages("ggupset")
 if(!(require(magrittr))) 
   install.packages("magrittr")
 if(!(require(clusterProfiler))) 
-  install.packages("clusterProfiler")
+  BiocManager::install("clusterProfiler")
+if(!(require(DOSE))) 
+  BiocManager::install("DOSE")
 if(!(require(RColorBrewer))) 
   install.packages("RColorBrewer")
 if(!(require(ggplot2))) 
@@ -48,8 +52,8 @@ if(!(require(genefilter)))
   BiocManager::install("genefilter")
 if(!(require(annotate))) 
   BiocManager::install("annotate")
-if(!(require(ReactomePA))) 
-  BiocManager::install("ReactomePA")
+if(!(require(enrichplot))) 
+  BiocManager::install("enrichplot")
 ```
 
 # Abstract
@@ -226,17 +230,11 @@ cont.matrix <- makeContrasts (D12vsM12 = ((DOHV12a+DOHV12b)-(Mock12a+Mock12b))-(
                               S12vsM12 = ((SarsCoV12a+SarsCoV12b)-(Mock12a+Mock12b))-((Mock12a-Mock12b))*1.5,
                               S24vsM24 = ((SarsCoV24a+SarsCoV24b)-(Mock24a+Mock24b))-((Mock24a-Mock24b))*1.5,
                               S48vsM48 = ((SarsCoV48a+SarsCoV48b)-(Mock48a+Mock48b))-((Mock48a-Mock48b))*1.5,
-                              M12=Mock12a-Mock12b,
-                              M24=Mock24a-Mock24b,
-                              M48=Mock48a-Mock48b,
-                              S12vsM12t=((SarsCoV12a+SarsCoV12b)-(Mock12a+Mock12b)),
-                              S24vsM24t=((SarsCoV24a+SarsCoV24b)-(Mock24a+Mock24b)),
-                              S48vsM48t=((SarsCoV48a+SarsCoV48b)-(Mock48a+Mock48b)),
                               levels=designMat)
 print(cont.matrix)
 ```
 ```{r}
-cont.names <- c("D12vsM12","D24vsM24", "D48vsM48", "S12vsM12", "S24vsM24", "S48vsM48","M12", "M24", "M48", "S12vsM12t","S24vsM24t", "S48vsM48t")
+cont.names <- c("D12vsM12","D24vsM24", "D48vsM48", "S12vsM12", "S24vsM24", "S48vsM48")
 cont.n <- length(cont.names)
 require(limma)
 fit<-lmFit(eset_filtered, designMat)
@@ -311,11 +309,6 @@ title("Genes in common between the three comparisons\n Genes up regulated with F
 vennDiagram (res.down[,4:6], cex=0.9)
 title("Genes in common between the three comparisons\n Genes down regulated with FDR < 0.05 and logFC > 1.5")
 
-vennDiagram (res.up[,10:12], cex=0.9)
-title("Genes in common between the three comparisons\n Genes up regulated with FDR < 0.05 and logFC > 1.5")
-vennDiagram (res.down[,10:12], cex=0.9)
-title("Genes in common between the three comparisons\n Genes down regulated with FDR < 0.05 and logFC > 1.5")
-
 ```
 
 Heatmaps
@@ -337,65 +330,63 @@ write.csv(HMdata, file = file.path("./results/data4Heatmap.csv"))
 
 
 ```{r selectGenes}
-listOfTables <- list(KOvsWT.COLD = topTab_KOvsWT.COLD, 
-                     KOvsWT.RT  = topTab_KOvsWT.RT, 
-                     INT = topTab_INT)
 listOfSelected <- list()
-for (i in 1:length(listOfTables)){
+for (i in 1:cont.n) {
   # select the toptable
-  topTab <- listOfTables[[i]]
+  topTab <- cont.list[[i]]
   # select the genes to be included in the analysis
-  whichGenes<-topTab["adj.P.Val"]<0.15
+  whichGenes<-topTab["logFC"]>1.5
   selectedIDs <- rownames(topTab)[whichGenes]
+  selectedFC <- topTab[whichGenes,"logFC"]
   # convert the ID to Entrez
-  EntrezIDs<- select(mogene21sttranscriptcluster.db, selectedIDs, c("ENTREZID"))
+  EntrezIDs<- select(hgu133plus2.db, selectedIDs, c("ENTREZID"))
   EntrezIDs <- EntrezIDs$ENTREZID
-  listOfSelected[[i]] <- EntrezIDs
-  names(listOfSelected)[i] <- names(listOfTables)[i]
+  listOfSelected[[i]] <- selectedFC
+  names(listOfSelected[[i]]) <- EntrezIDs
+  listOfSelected[[i]] <- sort(listOfSelected[[i]], decreasing = TRUE)
+  names(listOfSelected)[i] <- cont.names[i]
 }
 sapply(listOfSelected, length)
 ```
 
 ```{r}
-mapped_genes2GO <- mappedkeys(org.Mm.egGO)
-mapped_genes2KEGG <- mappedkeys(org.Mm.egPATH)
-mapped_genes <- union(mapped_genes2GO , mapped_genes2KEGG)
+geneList <- listOfSelected[[6]]
+gene <- names(geneList)
+
+# wpgmtfile <- system.file("extdata/wikipathways-20180810-gmt-Homo_sapiens.gmt", package="clusterProfiler")
+# wp2gene <- read.gmt(wpgmtfile)
+# wp2gene <- wp2gene %>% tidyr::separate(ont, c("name","version","wpid","org"), "%")
+# wpid2gene <- wp2gene %>% dplyr::select(wpid, gene) #TERM2GENE
+# wpid2name <- wp2gene %>% dplyr::select(wpid, name) #TERM2NAME
+# ewp <- enricher(gene, TERM2GENE = wpid2gene, TERM2NAME = wpid2name)
+# head(ewp)
+
 ```
 
-```{r BiologicalSig}
-require(ReactomePA)
-listOfData <- listOfSelected[1:2]
-comparisonsNames <- names(listOfData)
-universe <- mapped_genes
-for (i in 1:length(listOfData)){
-  genesIn <- listOfData[[i]]
-  comparison <- comparisonsNames[i]
-  enrich.result <- enrichPathway(gene = genesIn,
-                                 pvalueCutoff = 0.05,
-                                 readable = T,
-                                 pAdjustMethod = "BH",
-                                 organism = "mouse",
-                                 universe = universe)
-  
-  cat("##################################")
-cat("\nComparison: ", comparison,"\n")
-print(head(enrich.result))
-if (length(rownames(enrich.result@result)) != 0) {
-  write.csv(as.data.frame(enrich.result), 
-            file =paste0("./results/","ReactomePA.Results.",comparison,".csv"), 
-            row.names = FALSE)
-  
-  pdf(file=paste0("./results/","ReactomePABarplot.",comparison,".pdf"))
-  print(barplot(enrich.result, showCategory = 15, font.size = 4, 
-                title = paste0("Reactome Pathway Analysis for ", comparison,". Barplot")))
-  dev.off()
-  
-  pdf(file = paste0("./results/","ReactomePAcnetplot.",comparison,".pdf"))
-  print(cnetplot(enrich.result, categorySize = "geneNum", schowCategory = 15, 
-                 vertex.label.cex = 0.75))
-  dev.off()
-}
-}
+```{r}
+geneList <- listOfSelected[[6]]
+gene <- names(geneList)
+edo <- enrichDGN(gene)
+
+barplot(edo, showCategory=20)
+
+geneList <- listOfSelected[[4]]
+gene <- names(geneList)
+edo <- enrichDGN(gene)
+
+edox <- setReadable(edo, 'hgu133plus2.db', 'ENTREZID')
+p1 <- cnetplot(edox, foldChange=geneList)
+## categorySize can be scaled by 'pvalue' or 'geneNum'
+p2 <- cnetplot(edox, categorySize="pvalue", foldChange=geneList)
+p3 <- cnetplot(edox, foldChange=geneList, circular = TRUE, colorEdge = TRUE)
+cowplot::plot_grid(p1, p2, p3, ncol=3, labels=LETTERS[1:3], rel_widths=c(.8, .8, 1.2))
+```
+
+```{r}
+geneList <- listOfSelected[[6]]
+gene <- names(geneList)
+edo <- enrichDGN(gene)
+upsetplot(edo)
 ```
 
 
