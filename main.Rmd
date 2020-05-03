@@ -16,7 +16,7 @@ if(!(require(knitr)))
 require(knitr)
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
                       comment = NA, prompt = TRUE, tidy = FALSE, 
-                      fig.width = 5, fig.height = 5, fig_caption = TRUE,
+                      fig_caption = TRUE, fig.align="center",
                       cache=FALSE)
 if(!(require(BiocManager))) 
   install.packages("BiocManager")
@@ -60,15 +60,17 @@ if(!(require(enrichplot)))
   BiocManager::install("enrichplot")
 ```
 
-*The last versión of the current document, with all the relevant files and code, and all data associated with the report can be found in:  *  
+***
+
+*The last versión of the current document, with all the relevant files and code, and all data associated with the report can be found in:*    
 
 https://github.com/piosierra/ADO-PEC1  
 
-*The original study can be found in:  *    
+*The original study can be found in:*      
 
 https://www.ncbi.nlm.nih.gov/pubmed/20090954  
 
-
+***
 
 # Abstract
 
@@ -104,7 +106,8 @@ On the working directory it is asumed we have the following folders to work with
 
 We describe now the workflow followed:  
 
-** a) Identify the groups and match groups to files.**  
+**a) Identify the groups and match groups to files.**  
+
 There are 27 arrays were analyzed as 9 separate groups (mock-, SARS-CoV-infected, and DHOV-infected cells at 12, 24, and 48 hrs).
 
 
@@ -122,6 +125,8 @@ utils::untar("data.tar", exdir = "data")
 targets <- read.csv2("targets.csv", header = TRUE, sep = ";") 
 knitr::kable(targets, booktabs = TRUE,
              caption = 'Content of the targe file used for the analysis')
+```
+```{r include =FALSE}
 library(oligo)
 celFiles <- list.celfiles("./data", full.names = TRUE, listGzipped=TRUE)
 library(Biobase)
@@ -130,7 +135,7 @@ my.targets <-read.AnnotatedDataFrame(file.path(".","targets.csv"),
                                      sep=";") 
 rawData <- read.celfiles(celFiles, phenoData = my.targets)
 ```
-** b) Quality control of the raw data.**  
+**b) Quality control of the raw data.**  
 
 We perform a quality control of the data with the package arrayQualityMetrics. The results can be found on the apendix. There two marks on two of the samples, but we decided to use all the samples as none of them had issues with the three metrics, and they wre used on the reference study. A deeper analysis might be performed to clarify the correctness of this data.
 
@@ -162,7 +167,7 @@ plotPCA3 <- function (datos, labels, factor, title, scale,colores, size = 1.5, g
     theme(plot.title = element_text(hjust = 0.5)) +
     scale_color_manual(values=colores)
   }
-colorsq <- brewer.pal(12, "Set1")
+colorsq <- brewer.pal(12, "Dark2")
 colorss <- brewer.pal(12, "YlOrRd")
 colorsd <- brewer.pal(12, "Spectral")
 
@@ -172,7 +177,10 @@ plotPCA3(exprs(rawData), labels = targets$ShortName, factor = targets$Group,
                      rep(colorsq[2], 3),
                      rep(colorsq[3], 3)))
 ```
-Observamos la distribución de intensidad de los arrays observando los boxplots.
+
+
+And now we examine the intensity distribution on the arrays chcking the boxplots.  
+
 
 ```{r echo=FALSE}
 
@@ -192,14 +200,15 @@ boxplot(rawData, cex.axis=0.5, las=2,  which="all",
 
 ```
 
-** c) Data Normalization.**   
+**c) Data Normalization.**   
 
 We use the RMA (Robust Multichip Analysis) to perform background correction, normalization and summarize the data.  
 ```{r include=FALSE}
 eset_rma <- rma(rawData)
 ```
 
-** d) Quality control of the normalized data.**  
+**d) Quality control of the normalized data.**  
+
 We repoeat the same analysis with the normalized data. As expected now the first component accounts for less total variability, the percentage of explained variability has decreased with respect to PCA performed on raw data. Similarly the boxplots appear with similar aspect. Which suggest the distribution of the normalized intensities is the same in all samples.
 
 
@@ -213,7 +222,8 @@ plotPCA3(exprs(eset_rma), labels = targets$ShortName, factor = targets$Group,
          colores = c(rep(colorsq[1], 3),
                      rep(colorsq[2], 3),
                      rep(colorsq[3], 3)))
-
+```
+```{r echo=FALSE}
 boxplot(eset_rma, cex.axis=0.5, las=2,  which="all", 
          col = c(rep(colorsd[1], 3), 
                  rep(colorsd[2], 3), 
@@ -228,7 +238,7 @@ boxplot(eset_rma, cex.axis=0.5, las=2,  which="all",
 
 ```
 
-** e) Identify Differentially expresed genes.**   
+**e) Identify Differentially expresed genes.**   
 
 We want to identify the genes that have been differentialy expressed. First we show the standard deviations of all genes sorted from smallest to biggest values. The plot shows that the most variable genes are those with a standard deviation above 90-95% of all standard deviations.
 
@@ -240,11 +250,12 @@ plot(1:length(sdsO), sdsO, main="Distribution of variability for all genes",
      xlab="Gene index (from least to most variable)", ylab="Standard deviation")
 abline(v=length(sds)*c(0.9,0.95))
 ```
+
 And we use the function nsFilter from the bioconductor package genefilter to remove genes based on a variability threshold. As we have the annotation package be use it also to remove probesets which do not have a gene identifier associated.   
 After that we save the normalized and filtered data on the results folder.
 
 
-```{r echo=FALSE} 
+```{r include=FALSE} 
 annotation(eset_rma) <- "hgu133plus2.db"
 filtered <- nsFilter(eset_rma, 
                      require.entrez = TRUE, remove.dupEntrez = TRUE,
@@ -254,11 +265,11 @@ print(filtered$filter.log)
 eset_filtered <-filtered$eset
 write.csv(exprs(eset_rma), file="./results/normalized.Data.csv")
 write.csv(exprs(eset_filtered), file="./results/normalized.Filtered.Data.csv")
-save(eset_rma, eset_filtered, file="./results/normalized.Data.Rda")
 ```
 
-** f) Definition of the experimental setup.**
-We use the Linear Models for Microarrays method, as implemented in the limma package [@law_rna-seq_2018] is used to select differential expressed genes.
+**f) Definition of the experimental setup.**  
+
+We use the Linear Models for Microarrays method, as implemented in the limma package [@law_rna-seq_2018] is used to select differential expressed genes.  
 The design matrix can be defined manually or from a factor variable that may have been introduced in the “targets” file with this aim created specifically for it. In this study that “Group” variable is a combination of the two experimental conditions, Infection Status and time which are jointly represented as one factor with 9 levels.
 
 ```{r echo=FALSE}
@@ -272,14 +283,15 @@ colnames(designMat) <- sub("Group", "", colnames(designMat))
 print(designMat)
 
 ```
-** g) Defining comparisons with the Contrasts Matrix.**  
+**g) Defining comparisons with the Contrasts Matrix.**  
+
 In this experiment we do six comparions to compare the expresion on each time slot on the infected cells compared to the non infected cell (Mock).
 
 ```{r}
 cont.matrix <- makeContrasts (
-  S12vsM12 =  SarsCoV12 - Mock12,
-  S24vsM24 =  SarsCoV24 - Mock24,
-  S48vsM48 =  SarsCoV48 - Mock48,
+  S12vsM12 =  Sars12 - Mock12,
+  S24vsM24 =  Sars24 - Mock24,
+  S48vsM48 =  Sars48 - Mock48,
   D12vsM12 =  DOHV12 - Mock12,
   D24vsM24 =  DOHV24 - Mock24,
   D48vsM48 =  DOHV48 - Mock48,
@@ -287,7 +299,14 @@ cont.matrix <- makeContrasts (
 print(cont.matrix)
 ```
 
-```{r echo=FALSE}
+**h) Model estimation and gene selection.**
+
+We proceed to estimate the model, estimate the contrasts and perform the significance tests that will lead to the decision, for each gene and each comparison, if they can be considered differential expressed. 
+The method implemented in the  package extends the traditional analysis using Empirical Bayes models to combine an estimate of variability based on the entire matrix with individual estimates based on each individual values providing improved error estimates.
+The analysis provides the usual test statistics such as Fold-change t-moderated or adjusted p-values that are used to order the genes from more unless differential expressed.
+In order to control the percentage of false positives that may result from high number of contrasts made simultaneously the p-values are adjusted so that we have control over the false positive rate using the Benjamini and Hochberg method.
+
+```{r include=FALSE}
 cont.names <- names(cont.matrix[2,])  
 cont.n <- length(cont.names)
 require(limma)
@@ -295,6 +314,11 @@ fit<-lmFit(eset_filtered, designMat)
 fit.main<-contrasts.fit(fit, cont.matrix)
 fit.main<-eBayes(fit.main)
 class(fit.main)
+```
+**i) Obtaining lists of differentially expressed genes.**  
+We create a list `cont.list` using the package `topTable` to get a list of the genes more differentially expressed for each contrast. 
+
+```{r include=FALSE}
 cont.list <- list()
 for (i in 1:cont.n) {
   cont.list[[i]] <- topTable (fit.main, number=nrow(fit.main), coef=cont.names[i], adjust="fdr")
@@ -306,6 +330,12 @@ for (i in 1:cont.n) {
 
 
 ```
+
+**j) Gene Anotation.**  
+
+Now we enrich the data with information from the package `hgu133plus2.db`. For each list of genes in the list of contrast we add the information about Gene Name and Symbol and EntrezID to the information already present.  
+
+
 
 ```{r GeneAnnotation, message=FALSE, warning=FALSE, echo=FALSE}
 annotatedTopTable <- function(topTab, anotPackage)
@@ -328,27 +358,39 @@ write.csv(anno.list[i], file=paste("./results/topAnnotated_",cont.names[i],".csv
 }
 ```
 
+Here two examples of part of the enriched data from the contrasts.  
+
 
 ```{r annotatedTop, echo=FALSE}
-for (i in 1:cont.n) {
+for (i in 1:2) {
   print(paste('Annotations added to results topTable for the comparison: ',cont.names[[i]]))
   b <- anno.list[[i]]
-  print(head(b[order(b$adj.P.Val),][1:5,1:4]))
+  print(head(b[order(b$adj.P.Val),][,c(2,4)]))
 }
 ```
+
+**k) Visualization of differential expression.**  
+
+We provide a visualization of the overall differential expression using volcano-plots. These plots show if there are many or few genes with a large fold-change and significantly expressed or if this number is low. These graphs represent in the X-axis the changes of expression in logarithmic scale (“biological effect”) and in the Y-axis the “minus logarithm” of the p-value or alternatively the B statistic (“Statistical effect”). 
+
+
 ```{r echo=FALSE}
+par(mfrow=c(2,3))
 for (i in 1:cont.n) {
 geneSymbols <- select(hgu133plus2.db, rownames(fit.main), c("SYMBOL"))
 SYMBOLS<- geneSymbols$SYMBOL
 volcanoplot(fit.main, coef=i, highlight=4, names=SYMBOLS, 
-           main=paste("Differentially expressed genes", colnames(cont.matrix)[i], sep="\n"))
+           main=paste("Differentially expressed genes", colnames(cont.matrix)[i], sep="\n"), col.main=colorsq[3-2*(i>3)])
 abline(v=c(-1,1))
 }
 ```
 
+**l) Multiple comparisons.**   
 
-7. Anotación de los resultados
-8. Comparación entre distintas comparaciones (si hay más de una comparación, ver que genes han sido seleccionados en más de una comparación)
+Following the same criteria as the study for the experiment we are reproducing we select the genes that have been up and down regulated in the 3 time positions for each infection. We consider only genes with a folder change greater than 1.5 and $p<0.05$.  
+
+
+
 ```{r echo=FALSE}
 
 res<-decideTests(fit.main, method="separate", adjust.method="fdr", p.value=0.05, lfc=1.5)
@@ -356,37 +398,72 @@ sum.res.rows<-apply(res,1,sum)
 res.up<-res[sum.res.rows>0,] 
 res.down<-res[sum.res.rows<0,]
 res.selected<- res[sum.res.rows!=0,]
-print(summary(res))
-
+par(mfrow=c(2,2))
 vennDiagram (res.up[,1:3], cex=0.9)
-title("Genes in common between the three comparisons\n Sars-CoV vs Mock \n Genes up regulated with FDR < 0.05 and logFC > 1.5")
+title("Genes in common between the three comparisons\n Sars-CoV vs Mock \n Genes up regulated with FDR < 0.05 and logFC > 1.5", cex.main=0.8, col.main=colorsq[3])
 vennDiagram (res.down[,1:3], cex=0.9)
-title("Genes in common between the three comparisons\n Sars-CoV vs Mock \nGenes down regulated with FDR < 0.05 and logFC > 1.5")
+title("Genes in common between the three comparisons\n Sars-CoV vs Mock \nGenes down regulated with FDR < 0.05 and logFC > 1.5", cex.main=0.8, col.main=colorsq[3])
 
 vennDiagram (res.up[,4:6], cex=0.9)
-title("Genes in common between the three comparisons\n DOHV vs Mock \nGenes up regulated with FDR < 0.05 and logFC > 1.5")
+title("Genes in common between the three comparisons\n DOHV vs Mock \nGenes up regulated with FDR < 0.05 and logFC > 1.5", cex.main=0.8, col.main=colorsq[1])
 vennDiagram (res.down[,4:6], cex=0.9)
-title("Genes in common between the three comparisons\n DOHV vs Mock \nGenes down regulated with FDR < 0.05 and logFC > 1.5")
+title("Genes in common between the three comparisons\n DOHV vs Mock \nGenes down regulated with FDR < 0.05 and logFC > 1.5", cex.main=0.8, col.main=colorsq[1])
 
 ```
 
-Heatmaps
+**m) Heatmaps.**  
+
+To visualize the expression values of differential expressed genes we use a heatmap. We plot them doing a hierarchical clustering on genes (rows) or columns(samples) in order to find groups of genes with common patterns of variation which can eventually be associated to the different groups being compared.  
+We use the previosly selected genes for the heatmap. As some of the number of up regulated genes selected is very large we will use the heatmap only for the down regulated which we have considered to be more differentialy expressed ($FRD < 0.05$ y $logFC > 1.5$)
 
 ```{r echo=FALSE}
-probesInHeatmap <- rownames(res.selected)
+probesInHeatmap <- rownames(res.down)
 HMdata <- exprs(eset_filtered)[rownames(exprs(eset_filtered)) %in% probesInHeatmap,]
 
 geneSymbols <- select(hgu133plus2.db, rownames(HMdata), c("SYMBOL"))
 SYMBOLS<- geneSymbols$SYMBOL
 rownames(HMdata) <- SYMBOLS
 write.csv(HMdata, file = file.path("./results/data4Heatmap.csv"))
+
+my_palette <- colorRampPalette(c(colorsq[6], colorsq[4]))(n = 299)
+require(gplots)
+
+png("figures/global_heatmap.png", width = 680, height = 680)
+heatmap.2(HMdata,
+          Rowv = FALSE,
+          Colv = FALSE,
+          main = "Differentially expressed genes \n FDR < 0.05, logFC >=1.5",
+          scale = "row",
+          col = my_palette,
+          sepcolor = "white",
+          sepwidth = c(0.05,0.05),
+          cexRow = 1,
+          cexCol = 0.8,
+          key = TRUE,
+          keysize = 1.5,
+          density.info = "histogram",
+          ColSideColors = c(rep(colorsq[1],9),rep(colorsq[2],9), rep(colorsq[3],9)),
+          tracecol = NULL,
+          dendrogram = "none",
+          srtCol = 30)
+dev.off()
+
 ```
 
 
 
 
-9. Análisis de significación biológica (“Gene Enrichment Analysis”)
+**n) Biological significance of results.**  
 
+To obtain some insights about the biological significance of the results we use the pipelines described on the clusterProfiler package [@yu_clusterprofiler_nodate].  
+Here we describe some of the enrichment options for the clusterProfiler package:  
+* enrichDO: Disiease Association  
+* enrichNCG: A manually curated repository of cancer genes from the Network of Cancer Gene (NCG) [@noauthor_network_nodate]  
+* enrichDGN: gene-disease associations from DisGeNET. [@noauthor_disgenet_nodate]  
+* groupGO, enrichGO and gseGO: GO analyses for organisms that have an OrgDb object available.
+
+Once we have prepared and enriched the data following their instructions, we perform a series of example analysis.  
+The most interesting is with `browseKEGG` to be able to whatch the relevant overexpressed genes in a certain pathway. 
 
 ```{r selectGenes, echo=FALSE}
 listOfSelected <- list()
@@ -408,105 +485,156 @@ for (i in 1:cont.n) {
 sapply(listOfSelected, length)
 ```
 
-# ```{r echo=FALSE}
-# geneList <- listOfSelected[[3]]
-# gene <- names(geneList)
-# 
-# # wpgmtfile <- system.file("extdata/wikipathways-20180810-gmt-Homo_sapiens.gmt", package="clusterProfiler")
-# # wp2gene <- read.gmt(wpgmtfile)
-# # wp2gene <- wp2gene %>% tidyr::separate(ont, c("name","version","wpid","org"), "%")
-# # wpid2gene <- wp2gene %>% dplyr::select(wpid, gene) #TERM2GENE
-# # wpid2name <- wp2gene %>% dplyr::select(wpid, name) #TERM2NAME
-# # ewp <- enricher(gene, TERM2GENE = wpid2gene, TERM2NAME = wpid2name)
-# # head(ewp)
-# 
-# ```
-# 
-# ```{r echo=FALSE}
-# geneList <- listOfSelected[[3]]
-# gene <- names(geneList)
-# edo <- enrichDGN(gene)
-# 
-# barplot(edo, showCategory=20)
-# 
-# geneList <- listOfSelected[[2]]
-# gene <- names(geneList)
-# edo <- enrichDGN(gene)
-# 
-# edox <- setReadable(edo, 'hgu133plus2.db', 'ENTREZID')
-# p1 <- cnetplot(edox, foldChange=geneList)
-# ## categorySize can be scaled by 'pvalue' or 'geneNum'
-# p2 <- cnetplot(edox, categorySize="pvalue", foldChange=geneList)
-# p3 <- cnetplot(edox, foldChange=geneList, circular = TRUE, colorEdge = TRUE)
-# cowplot::plot_grid(p1, p2, p3, ncol=3, labels=LETTERS[1:3], rel_widths=c(.8, .8, 1.2))
-# ```
 
 ```{r echo=FALSE}
-geneList <- listOfSelected[[3]]
+for (i in 1:cont.n) {
+geneList <- listOfSelected[[i]]
 gene <- names(geneList)
+if (length(gene)>0) {
 edo <- enrichDGN(gene)
-upsetplot(edo)
+write.csv(edo, paste("results/DGN_Enriched_",cont.names[i],".csv",sep=""))
+png(paste("figures/enrichDGN",cont.names[i],".png", sep=""))
+print(barplot(edo, colorBy = "pvalue", showCategory = 20, font.size = 8, title = paste("Enriched terms for ",cont.names[i])))
+dev.off()
+}
+}
 ```
+```{r echo=FALSE}
+for (i in 1:cont.n) {
+geneList <- listOfSelected[[i]]
+gene <- names(geneList)
+if (length(gene)>0) {
+edo <- enrichDGN(gene)
+png(paste("figures/DGNnet",cont.names[i],".png", sep=""))
+print(emapplot(edo,layout="kk", line_scale=0.5))
+dev.off()
+}
+}
+
+```
+```{r echo=FALSE}
+
+kk <- enrichKEGG(gene         = gene,
+                 organism     = 'hsa',
+                 pvalueCutoff = 0.05)
+
+head(kk)
+
+# browseKEGG(kk, 'hsa05164')
+
+```
+
+
+# Results 
+
+The results can be found on the folders `results` (data files) and `figures`.  
+**Results:**  
+* QCDir.Norm: Folder with the arrayQualityMetrics report for normalized data.  
+* QCDir.Raw: Folder with the arrayQualityMetrics report for raw data.  
+* normalizedData.csv: full set of normalized Data.
+* normalizedFilteredData.csv: selected normalized Data (curoff = 0.75).  
+* topAnnotated_D12vsM12.csv: anotated data for the top results of the DOHV vs Mock contrast.  
+* topAnnotated_D24vsM24.csv: anotated data for the top results of the DOHV vs Mock contrast.  
+* topAnnotated_D48vsM48.csv: anotated data for the top results of the DOHV vs Mock contrast.  
+* topAnnotated_S12vsM12.csv: anotated data for the top results of the Sars vs Mock contrast.  
+* topAnnotated_S24vsM24.csv: anotated data for the top results of the Sars vs Mock contrast.  
+* topAnnotated_S48vsM48.csv: anotated data for the top results of the Sars vs Mock contrast.  
+* DGN_Enriched_D24vsM24.csv: contrast data enriched with the DisGeNET database.  
+* DGN_Enriched_D48vsM48.csv: contrast data enriched with the DisGeNET database.  
+* DGN_Enriched_S12vsM12.csv: contrast data enriched with the DisGeNET database.  
+* DGN_Enriched_S24vsM24.csv: contrast data enriched with the DisGeNET database.  
+* DGN_Enriched_S48vsM48.csv: contrast data enriched with the DisGeNET database.  
+
+**Figures**
+
+![Raw data quality control](figures/raw_report.png)
+![Normalized data quality control](figures/nom_report.png)
+![Heatmap of downregulated genes](figures/global_heatmap.png)
+![Bar plot of DGN Enriched data for D24vsM24](figures/enrichDGND24vsM24.png)
+![Bar plot of DGN Enriched data for D48vsM48](figures/enrichDGND48vsM48.png)
+![Bar plot of DGN Enriched data for S12vsM24](figures/enrichDGNS12vsM12.png)
+![Bar plot of DGN Enriched data for S24vsM24](figures/enrichDGNS24vsM24.png)
+![Bar plot of DGN Enriched data for S48vsM24](figures/enrichDGNS48vsM48.png)
+![Enriched map for D24vsM24](figures/DGNnetD24vsM24.png)
+![Enriched map for D48vsM48](figures/DGNnetD48vsM48.png)
+![Enriched map for S12vsM12](figures/DGNnetS12vsM12.png)
+![Enriched map for S24vsM24](figures/DGNnetS24vsM24.png)
+![Enriched map for S48vsM48](figures/DGNnetS48vsM48.png)
+
+
+# Discusion  
+
+`limma` offers a straightforward approach to gene expression analysis. Another great surprise was the large number of possibilities that the `clusterProfiler` package includes to perform deeper pathway analysis starting from the results of the experiment.
+
 
 # Apendix
 
 ## R packages list
 knitr  
-https://yihui.org/knitr/
+https://yihui.org/knitr/  
 BiocManager  
-https://cran.r-project.org/web/packages/BiocManager/vignettes/BiocManager.html
+https://cran.r-project.org/web/packages/BiocManager/vignettes/BiocManager.html  
+
 Biobase  
-https://www.bioconductor.org/packages/release/bioc/html/Biobase.html
+https://www.bioconductor.org/packages/release/bioc/html/Biobase.html  
+
 kableExtra  
-https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html  
+
 oligo  
-https://www.bioconductor.org/packages/release/bioc/html/oligo.html
+https://www.bioconductor.org/packages/release/bioc/html/oligo.html  
+
 pvca  
-https://www.bioconductor.org/packages/release/bioc/html/pvca.html
+https://www.bioconductor.org/packages/release/bioc/html/pvca.html  
+
 ggrepel  
-https://cran.r-project.org/web/packages/ggrepel/vignettes/ggrepel.html
+https://cran.r-project.org/web/packages/ggrepel/vignettes/ggrepel.html  
+
 colorspace  
-https://cran.r-project.org/web/packages/colorspace/vignettes/colorspace.html
+https://cran.r-project.org/web/packages/colorspace/vignettes/colorspace.html  
+
 gplots  
-https://cran.r-project.org/web/packages/ggplot2/index.html
+https://cran.r-project.org/web/packages/ggplot2/index.html  
+
 ggupset  
-https://github.com/const-ae/ggupset
+https://github.com/const-ae/ggupset  
+
 magrittr  
-https://cran.r-project.org/web/packages/magrittr/vignettes/magrittr.html
+https://cran.r-project.org/web/packages/magrittr/vignettes/magrittr.html  
+
 clusterProfiler  
-https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html
+https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html  
+
 DOSE  
-https://www.bioconductor.org/packages/release/bioc/html/DOSE.html
+https://www.bioconductor.org/packages/release/bioc/html/DOSE.html  
+
 RColorBrewer  
-https://www.rdocumentation.org/packages/RColorBrewer/versions/1.1-2/topics/RColorBrewer
+https://www.rdocumentation.org/packages/RColorBrewer/versions/1.1-2/topics/RColorBrewer  
+
 ggplot2  
-https://ggplot2.tidyverse.org/
+https://ggplot2.tidyverse.org/  
+
 hgu133plus2.db  
-http://bioconductor.org/packages/release/data/annotation/html/hgu133plus2.db.html
+http://bioconductor.org/packages/release/data/annotation/html/hgu133plus2.db.html  
+
 arrayQualityMetrics  
-https://www.bioconductor.org/packages/release/bioc/html/arrayQualityMetrics.html
+https://www.bioconductor.org/packages/release/bioc/html/arrayQualityMetrics.html  
+
 limma  
-https://www.bioconductor.org/packages/release/bioc/html/limma.html
+https://www.bioconductor.org/packages/release/bioc/html/limma.html  
+
 genefilter  
-https://bioconductor.org/packages/release/bioc/html/genefilter.html
+https://bioconductor.org/packages/release/bioc/html/genefilter.html  
+
 annotate  
-https://www.bioconductor.org/packages/release/bioc/html/annotate.html
+https://www.bioconductor.org/packages/release/bioc/html/annotate.html  
+
 enrichplot  
-https://bioconductor.org/packages/release/bioc/html/enrichplot.html
+https://bioconductor.org/packages/release/bioc/html/enrichplot.html  
+
 
   
-  
-\begin{center}
-## Raw data quality control
-![Raw data quality control](figures/raw_report.png)
+# References  
 
-
-
-## Normalized data quality control
-![Normalized data quality control](figures/nom_report.png){#id .class width=50% height=50%}
-
-\end{center}
-
-# References
 
 
