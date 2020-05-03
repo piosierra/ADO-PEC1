@@ -1,10 +1,12 @@
 ---
-title: "Case-Study-for-ADO-PCE-1"
+title: "Case-Study-for-ADO-PCE-1: Global Gene Expression of 2B4 Cells in Response to SARS-CoV Infection"
 author: "Pío Sierra"
 date: "30/4/2020"
 output:
+  pdf_document:
   html_document:
     df_print: paged
+bibliography: pec-ado.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -57,6 +59,9 @@ if(!(require(enrichplot)))
 ```
 
 # Abstract
+
+Differential gene expression (DGE) analysis on SARS-CoV infected 2B4 cells at 12-, 24-, and 48-hrs post infection. We try to reproduce the results of a study [@yoshikawa_dynamic_2010] employed a cDNA microarray to analyze the patterns of the global gene expression of 2B4 cells in response to SARS-CoV, as the first step to explore the likely antiviral signaling pathway/s.
+
 
 # Introducción
 
@@ -130,15 +135,14 @@ plotPCA3 <- function (datos, labels, factor, title, scale,colores, size = 1.5, g
     theme(plot.title = element_text(hjust = 0.5)) +
     scale_color_manual(values=colores)
   }
-colorsq <- brewer.pal(9, "Set1")
-colorss <- brewer.pal(9, "YlOrRd")
-colorsd <- brewer.pal(9, "Spectral")
+colorsq <- brewer.pal(12, "Set1")
+colorss <- brewer.pal(12, "YlOrRd")
+colorsd <- brewer.pal(12, "Spectral")
 
 plotPCA3(exprs(rawData), labels = targets$ShortName, factor = targets$Group, 
          title="Raw data", scale = FALSE, size = 3, 
          colores = c(rep(colorsq[1], 6),
-                     rep(colorsq[2], 6),
-                     rep(colorsq[3], 6)))
+                     rep(colorsq[2], 6)))
 ```
 Observamos la distribución de intensidad de los arrays observando los boxplots.
 
@@ -150,10 +154,7 @@ boxplot(rawData, cex.axis=0.5, las=2,  which="all",
                  rep(colorsd[3], 3),
                  rep(colorsd[4], 3),
                  rep(colorsd[5], 3),
-                 rep(colorsd[6], 3),
-                 rep(colorsd[7], 3),
-                 rep(colorsd[8], 3),
-                 rep(colorsq[9], 3)),
+                 rep(colorsd[6], 3)),
          main="Distribution of raw intensity values")
 
 
@@ -176,8 +177,7 @@ arrayQualityMetrics(eset_rma, outdir = file.path("./results", "QCDir.Norm"), for
 plotPCA3(exprs(eset_rma), labels = targets$ShortName, factor = targets$Group, 
          title="Normalized data", scale = FALSE, size = 3, 
          colores = c(rep(colorsq[1], 6),
-                     rep(colorsq[2], 6),
-                     rep(colorsq[3], 6)))
+                     rep(colorsq[2], 6)))
 
 boxplot(eset_rma, cex.axis=0.5, las=2,  which="all", 
          col = c(rep(colorsd[1], 3), 
@@ -185,10 +185,7 @@ boxplot(eset_rma, cex.axis=0.5, las=2,  which="all",
                  rep(colorsd[3], 3),
                  rep(colorsd[4], 3),
                  rep(colorsd[5], 3),
-                 rep(colorsd[6], 3),
-                 rep(colorsd[7], 3),
-                 rep(colorsd[8], 3),
-                 rep(colorsq[9], 3)),
+                 rep(colorsd[6], 3)),
          main="Distribution of raw intensity values")
 
 ```
@@ -216,25 +213,26 @@ write.csv(exprs(eset_filtered), file="./results/normalized.Filtered.Data.csv")
 save(eset_rma, eset_filtered, file="./results/normalized.Data.Rda")
 ```
 ```{r}
-if (!exists("eset_filtered")) load (file="./results/normalized.Data.Rda")
+if (!exists("eset_filtered"))
+  load (file = "./results/normalized.Data.Rda")
 
 
 require(limma)
-designMat<- model.matrix(~0+Group, pData(eset_filtered))
-colnames(designMat) <- sub("Group","", colnames(designMat))
+designMat<- model.matrix( ~ 0 + Group, pData(eset_filtered))
+colnames(designMat) <- sub("Group", "", colnames(designMat))
 print(designMat)
 
-cont.matrix <- makeContrasts (D12vsM12 = ((DOHV12a+DOHV12b)-(Mock12a+Mock12b))-((Mock12a-Mock12b))*1.5,
-                              D24vsM24 = ((DOHV24a+DOHV24b)-(Mock24a+Mock24b))-((Mock24a-Mock24b))*1.5,
-                              D48vsM48 = ((DOHV48a+DOHV48b)-(Mock48a+Mock48b))-((Mock48a-Mock48b))*1.5,
-                              S12vsM12 = ((SarsCoV12a+SarsCoV12b)-(Mock12a+Mock12b))-((Mock12a-Mock12b))*1.5,
-                              S24vsM24 = ((SarsCoV24a+SarsCoV24b)-(Mock24a+Mock24b))-((Mock24a-Mock24b))*1.5,
-                              S48vsM48 = ((SarsCoV48a+SarsCoV48b)-(Mock48a+Mock48b))-((Mock48a-Mock48b))*1.5,
-                              levels=designMat)
-print(cont.matrix)
+cont.matrix <- makeContrasts (
+  S12vsM12 =  ((SarsCoV12a+SarsCoV12b) - (Mock12a + Mock12b))- 1.5*(Mock12a - Mock12b),
+  S24vsM24 =  ((SarsCoV24a+SarsCoV24b) - (Mock24a + Mock24b))- 1.5*(Mock24a - Mock24b),
+  S48vsM48 =  ((SarsCoV48a+SarsCoV48b) - (Mock48a + Mock48b))- 1.5*(Mock48a - Mock48b),
+  levels = designMat
+)
+print(cont.matrix
+)
 ```
 ```{r}
-cont.names <- c("D12vsM12","D24vsM24", "D48vsM48", "S12vsM12", "S24vsM24", "S48vsM48")
+cont.names <- c("S12vsM12", "S24vsM24", "S48vsM48")
 cont.n <- length(cont.names)
 require(limma)
 fit<-lmFit(eset_filtered, designMat)
@@ -304,9 +302,9 @@ res.down<-res[sum.res.rows<0,]
 res.selected<- res[sum.res.rows!=0,]
 print(summary(res))
 
-vennDiagram (res.up[,4:6], cex=0.9)
+vennDiagram (res.up, cex=0.9)
 title("Genes in common between the three comparisons\n Genes up regulated with FDR < 0.05 and logFC > 1.5")
-vennDiagram (res.down[,4:6], cex=0.9)
+vennDiagram (res.down, cex=0.9)
 title("Genes in common between the three comparisons\n Genes down regulated with FDR < 0.05 and logFC > 1.5")
 
 ```
@@ -349,41 +347,41 @@ for (i in 1:cont.n) {
 sapply(listOfSelected, length)
 ```
 
+# ```{r}
+# geneList <- listOfSelected[[3]]
+# gene <- names(geneList)
+# 
+# # wpgmtfile <- system.file("extdata/wikipathways-20180810-gmt-Homo_sapiens.gmt", package="clusterProfiler")
+# # wp2gene <- read.gmt(wpgmtfile)
+# # wp2gene <- wp2gene %>% tidyr::separate(ont, c("name","version","wpid","org"), "%")
+# # wpid2gene <- wp2gene %>% dplyr::select(wpid, gene) #TERM2GENE
+# # wpid2name <- wp2gene %>% dplyr::select(wpid, name) #TERM2NAME
+# # ewp <- enricher(gene, TERM2GENE = wpid2gene, TERM2NAME = wpid2name)
+# # head(ewp)
+# 
+# ```
+# 
+# ```{r}
+# geneList <- listOfSelected[[3]]
+# gene <- names(geneList)
+# edo <- enrichDGN(gene)
+# 
+# barplot(edo, showCategory=20)
+# 
+# geneList <- listOfSelected[[2]]
+# gene <- names(geneList)
+# edo <- enrichDGN(gene)
+# 
+# edox <- setReadable(edo, 'hgu133plus2.db', 'ENTREZID')
+# p1 <- cnetplot(edox, foldChange=geneList)
+# ## categorySize can be scaled by 'pvalue' or 'geneNum'
+# p2 <- cnetplot(edox, categorySize="pvalue", foldChange=geneList)
+# p3 <- cnetplot(edox, foldChange=geneList, circular = TRUE, colorEdge = TRUE)
+# cowplot::plot_grid(p1, p2, p3, ncol=3, labels=LETTERS[1:3], rel_widths=c(.8, .8, 1.2))
+# ```
+
 ```{r}
-geneList <- listOfSelected[[6]]
-gene <- names(geneList)
-
-# wpgmtfile <- system.file("extdata/wikipathways-20180810-gmt-Homo_sapiens.gmt", package="clusterProfiler")
-# wp2gene <- read.gmt(wpgmtfile)
-# wp2gene <- wp2gene %>% tidyr::separate(ont, c("name","version","wpid","org"), "%")
-# wpid2gene <- wp2gene %>% dplyr::select(wpid, gene) #TERM2GENE
-# wpid2name <- wp2gene %>% dplyr::select(wpid, name) #TERM2NAME
-# ewp <- enricher(gene, TERM2GENE = wpid2gene, TERM2NAME = wpid2name)
-# head(ewp)
-
-```
-
-```{r}
-geneList <- listOfSelected[[6]]
-gene <- names(geneList)
-edo <- enrichDGN(gene)
-
-barplot(edo, showCategory=20)
-
-geneList <- listOfSelected[[4]]
-gene <- names(geneList)
-edo <- enrichDGN(gene)
-
-edox <- setReadable(edo, 'hgu133plus2.db', 'ENTREZID')
-p1 <- cnetplot(edox, foldChange=geneList)
-## categorySize can be scaled by 'pvalue' or 'geneNum'
-p2 <- cnetplot(edox, categorySize="pvalue", foldChange=geneList)
-p3 <- cnetplot(edox, foldChange=geneList, circular = TRUE, colorEdge = TRUE)
-cowplot::plot_grid(p1, p2, p3, ncol=3, labels=LETTERS[1:3], rel_widths=c(.8, .8, 1.2))
-```
-
-```{r}
-geneList <- listOfSelected[[6]]
+geneList <- listOfSelected[[3]]
 gene <- names(geneList)
 edo <- enrichDGN(gene)
 upsetplot(edo)
