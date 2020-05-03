@@ -4,6 +4,8 @@ author: "Pío Sierra"
 date: "30/4/2020"
 output:
   pdf_document:
+    toc: true
+    number_sections: true
   html_document:
     df_print: paged
 bibliography: pec-ado.bib
@@ -58,15 +60,19 @@ if(!(require(enrichplot)))
   BiocManager::install("enrichplot")
 ```
 
-*The last versión of the current document, with all the relevant files and code, and all data associated with the report can be found in:  *
+*The last versión of the current document, with all the relevant files and code, and all data associated with the report can be found in:  *  
+
 https://github.com/piosierra/ADO-PEC1  
-*The original study can be found in:  *  
+
+*The original study can be found in:  *    
+
 https://www.ncbi.nlm.nih.gov/pubmed/20090954  
+
 
 
 # Abstract
 
-We try to reproduce the microarray analysis of the study **[@yoshikawa_dynamic_2010]**. They employed a cDNA microarray to analyze the patterns of the global gene expression of 2B4 cells in response to SARS-CoV, as the first step to explore the likely antiviral signaling pathway/s.
+We reproduce the microarray analysis of the study *Dynamic Innate Immune Responses of Human Bronchial Epithelial Cells to Severe Acute Respiratory Syndrome-Associated Coronavirus Infection*  **[@yoshikawa_dynamic_2010]**. They employed a cDNA microarray to analyze the patterns of the global gene expression of 2B4 cells in response to SARS-CoV, as the first step to explore the likely antiviral signaling pathway/s.
 
 # Objectives
 To perform a differential gene expression (DGE) analysis on SARS-CoV infected 2B4 cells at 12-, 24-, and 48-hrs post infection. The study aims to identify the complex epithelial signaling to SARS-CoV that is crucial for paving the way to better understand SARS pathogenesis.
@@ -87,11 +93,18 @@ The microarrays used were Affymetrix Human Genome U133 Plus 2.0 Array annotation
 http://bioconductor.org/packages/release/data/annotation/html/hgu133plus2.db.html
 https://www.affymetrix.com/support/technical/datasheets/human_datasheet.pdf
 
+We used R and Bioconductor to perform the analysis. The full list of packages employed can be found on the Apnedix.  
+
 ## Methods
+
+On the working directory it is asumed we have the following folders to work with:
+- data: where the CEL files are downloaded  
+- results: where the results data files will be stored  
+- figures: where the figures produced are stored  
 
 We describe now the workflow followed:  
 
-** 1 - Identify the groups and match groups to files.  
+** a) Identify the groups and match groups to files.**  
 There are 27 arrays were analyzed as 9 separate groups (mock-, SARS-CoV-infected, and DHOV-infected cells at 12, 24, and 48 hrs).
 
 
@@ -108,7 +121,7 @@ utils::untar("data.tar", exdir = "data")
 ```{r echo=FALSE}
 targets <- read.csv2("targets.csv", header = TRUE, sep = ";") 
 knitr::kable(targets, booktabs = TRUE,
-             caption = 'Contenido de los target files utilizados para el análisis')
+             caption = 'Content of the targe file used for the analysis')
 library(oligo)
 celFiles <- list.celfiles("./data", full.names = TRUE, listGzipped=TRUE)
 library(Biobase)
@@ -117,15 +130,15 @@ my.targets <-read.AnnotatedDataFrame(file.path(".","targets.csv"),
                                      sep=";") 
 rawData <- read.celfiles(celFiles, phenoData = my.targets)
 ```
-** 2 - Quality control of the raw data
+** b) Quality control of the raw data.**  
 
-We perform a quality control of the data with the package arrayQualityMetrics. The results can be found on the apendix. 
+We perform a quality control of the data with the package arrayQualityMetrics. The results can be found on the apendix. There two marks on two of the samples, but we decided to use all the samples as none of them had issues with the three metrics, and they wre used on the reference study. A deeper analysis might be performed to clarify the correctness of this data.
 
 ```{r QCRaw, message=FALSE, warning=FALSE, eval=FALSE, include=FALSE}
 require(arrayQualityMetrics)
 arrayQualityMetrics(rawData, outdir = file.path("./results", "QCDir.Raw"), force=TRUE)
 ```
-Análisis de componentes principales.
+We also performed a Principal Components Analysis and boxplot proyection that did not show any special problems with the data.
 
 ```{r, echo=FALSE}
 plotPCA3 <- function (datos, labels, factor, title, scale,colores, size = 1.5, glineas = 0.25) {
@@ -179,13 +192,16 @@ boxplot(rawData, cex.axis=0.5, las=2,  which="all",
 
 ```
 
-3. Normalización
+** c) Data Normalization.**   
 
+We use the RMA (Robust Multichip Analysis) to perform background correction, normalization and summarize the data.  
 ```{r include=FALSE}
 eset_rma <- rma(rawData)
 ```
 
-4. [Control de calidad de los datos normalizados] (opcional)
+** d) Quality control of the normalized data.**  
+We repoeat the same analysis with the normalized data. As expected now the first component accounts for less total variability, the percentage of explained variability has decreased with respect to PCA performed on raw data. Similarly the boxplots appear with similar aspect. Which suggest the distribution of the normalized intensities is the same in all samples.
+
 
 
 ```{r eval=FALSE, include = FALSE}
@@ -212,8 +228,9 @@ boxplot(eset_rma, cex.axis=0.5, las=2,  which="all",
 
 ```
 
-5. Filtraje no específico [opcional]
-6. Identificación de genes diferencialmente expresados
+** e) Identify Differentially expresed genes.**   
+
+We want to identify the genes that have been differentialy expressed. First we show the standard deviations of all genes sorted from smallest to biggest values. The plot shows that the most variable genes are those with a standard deviation above 90-95% of all standard deviations.
 
 ```{r echo=FALSE}
 sds <- apply (exprs(eset_rma), 1, sd)
@@ -222,7 +239,12 @@ plot(1:length(sdsO), sdsO, main="Distribution of variability for all genes",
      sub="Vertical lines represent 90% and 95% percentiles",
      xlab="Gene index (from least to most variable)", ylab="Standard deviation")
 abline(v=length(sds)*c(0.9,0.95))
+```
+And we use the function nsFilter from the bioconductor package genefilter to remove genes based on a variability threshold. As we have the annotation package be use it also to remove probesets which do not have a gene identifier associated.   
+After that we save the normalized and filtered data on the results folder.
 
+
+```{r echo=FALSE} 
 annotation(eset_rma) <- "hgu133plus2.db"
 filtered <- nsFilter(eset_rma, 
                      require.entrez = TRUE, remove.dupEntrez = TRUE,
@@ -234,6 +256,11 @@ write.csv(exprs(eset_rma), file="./results/normalized.Data.csv")
 write.csv(exprs(eset_filtered), file="./results/normalized.Filtered.Data.csv")
 save(eset_rma, eset_filtered, file="./results/normalized.Data.Rda")
 ```
+
+** f) Definition of the experimental setup.**
+We use the Linear Models for Microarrays method, as implemented in the limma package [@law_rna-seq_2018] is used to select differential expressed genes.
+The design matrix can be defined manually or from a factor variable that may have been introduced in the “targets” file with this aim created specifically for it. In this study that “Group” variable is a combination of the two experimental conditions, Infection Status and time which are jointly represented as one factor with 9 levels.
+
 ```{r echo=FALSE}
 if (!exists("eset_filtered"))
   load (file = "./results/normalized.Data.Rda")
@@ -244,6 +271,11 @@ designMat<- model.matrix( ~ 0 + Group, pData(eset_filtered))
 colnames(designMat) <- sub("Group", "", colnames(designMat))
 print(designMat)
 
+```
+** g) Defining comparisons with the Contrasts Matrix.**  
+In this experiment we do six comparions to compare the expresion on each time slot on the infected cells compared to the non infected cell (Mock).
+
+```{r}
 cont.matrix <- makeContrasts (
   S12vsM12 =  SarsCoV12 - Mock12,
   S24vsM24 =  SarsCoV24 - Mock24,
@@ -251,11 +283,10 @@ cont.matrix <- makeContrasts (
   D12vsM12 =  DOHV12 - Mock12,
   D24vsM24 =  DOHV24 - Mock24,
   D48vsM48 =  DOHV48 - Mock48,
-  levels = designMat
-)
-print(cont.matrix
-)
+  levels = designMat)
+print(cont.matrix)
 ```
+
 ```{r echo=FALSE}
 cont.names <- names(cont.matrix[2,])  
 cont.n <- length(cont.names)
@@ -418,14 +449,61 @@ upsetplot(edo)
 ```
 
 # Apendix
+
+## R packages list
+knitr  
+https://yihui.org/knitr/
+BiocManager  
+https://cran.r-project.org/web/packages/BiocManager/vignettes/BiocManager.html
+Biobase  
+https://www.bioconductor.org/packages/release/bioc/html/Biobase.html
+kableExtra  
+https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+oligo  
+https://www.bioconductor.org/packages/release/bioc/html/oligo.html
+pvca  
+https://www.bioconductor.org/packages/release/bioc/html/pvca.html
+ggrepel  
+https://cran.r-project.org/web/packages/ggrepel/vignettes/ggrepel.html
+colorspace  
+https://cran.r-project.org/web/packages/colorspace/vignettes/colorspace.html
+gplots  
+https://cran.r-project.org/web/packages/ggplot2/index.html
+ggupset  
+https://github.com/const-ae/ggupset
+magrittr  
+https://cran.r-project.org/web/packages/magrittr/vignettes/magrittr.html
+clusterProfiler  
+https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html
+DOSE  
+https://www.bioconductor.org/packages/release/bioc/html/DOSE.html
+RColorBrewer  
+https://www.rdocumentation.org/packages/RColorBrewer/versions/1.1-2/topics/RColorBrewer
+ggplot2  
+https://ggplot2.tidyverse.org/
+hgu133plus2.db  
+http://bioconductor.org/packages/release/data/annotation/html/hgu133plus2.db.html
+arrayQualityMetrics  
+https://www.bioconductor.org/packages/release/bioc/html/arrayQualityMetrics.html
+limma  
+https://www.bioconductor.org/packages/release/bioc/html/limma.html
+genefilter  
+https://bioconductor.org/packages/release/bioc/html/genefilter.html
+annotate  
+https://www.bioconductor.org/packages/release/bioc/html/annotate.html
+enrichplot  
+https://bioconductor.org/packages/release/bioc/html/enrichplot.html
+
+  
+  
 \begin{center}
 ## Raw data quality control
-![Raw data quality control](images/raw_report.png)
+![Raw data quality control](figures/raw_report.png)
 
 
 
 ## Normalized data quality control
-![Normalized data quality control](images/nom_report.png){#id .class width=50% height=50%}
+![Normalized data quality control](figures/nom_report.png){#id .class width=50% height=50%}
 
 \end{center}
 
