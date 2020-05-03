@@ -14,7 +14,7 @@ if(!(require(knitr)))
 require(knitr)
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
                       comment = NA, prompt = TRUE, tidy = FALSE, 
-                      fig.width = 7, fig.height = 7, fig_caption = TRUE,
+                      fig.width = 5, fig.height = 5, fig_caption = TRUE,
                       cache=FALSE)
 if(!(require(BiocManager))) 
   install.packages("BiocManager")
@@ -58,26 +58,45 @@ if(!(require(enrichplot)))
   BiocManager::install("enrichplot")
 ```
 
+*The last versión of the current document, with all the relevant files and code, and all data associated with the report can be found in:  *
+https://github.com/piosierra/ADO-PEC1  
+*The original study can be found in:  *  
+https://www.ncbi.nlm.nih.gov/pubmed/20090954  
+
+
 # Abstract
 
-Differential gene expression (DGE) analysis on SARS-CoV infected 2B4 cells at 12-, 24-, and 48-hrs post infection. We try to reproduce the results of a study [@yoshikawa_dynamic_2010] employed a cDNA microarray to analyze the patterns of the global gene expression of 2B4 cells in response to SARS-CoV, as the first step to explore the likely antiviral signaling pathway/s.
+We try to reproduce the microarray analysis of the study **[@yoshikawa_dynamic_2010]**. They employed a cDNA microarray to analyze the patterns of the global gene expression of 2B4 cells in response to SARS-CoV, as the first step to explore the likely antiviral signaling pathway/s.
 
+# Objectives
+To perform a differential gene expression (DGE) analysis on SARS-CoV infected 2B4 cells at 12-, 24-, and 48-hrs post infection. The study aims to identify the complex epithelial signaling to SARS-CoV that is crucial for paving the way to better understand SARS pathogenesis.
 
-# Introducción
+As mentioned on the study, even if the analysis was performed simultaneosly for the Sars-CoV and DOHV infected cells, for the study they did only use the files belonging to the control and Sars-Cov infected cells. The analysis with the DOHV data belongs to a different study and it is not included on that one.
 
-El estudio va a ser sobre
+# Materials and Methods
+
+## Materials 
+We use the published data for the experiment that can be found on GEO GSE17400:  
 https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE17400
-Study:
-https://www.ncbi.nlm.nih.gov/pubmed/20090954
 
-Y procedemos a descargar los archivos.
+We will reproduce the whole experiment, again, even if the DOHV data was not used in the mentioned study.
+To characterize the dynamic, spatial, and temporal changes of the gene expression induced by SARS-CoV, confluent 2B4 cells grown in T-75 flasks were infected with SARS-CoV (MOI=0.1) or remained uninfected (as control) for 12, 24, and 48hrs. Because 2B4 cells were also permissive to the productive infection of Dhori virus (DHOV), a member of the Orthomyxoviridae family within the Thogotovirus genus, resulting in robust responses of IFNs and other pro-inflammatory mediators, they also established parallel cultures of DHOV-infected 2B4 cells (MOI=0.1) for the comparative analysis of global gene expression elicited by SARS-CoV- versus DHOV-infected 2B4 cells. To meet the minimal number required for application of statistical algorithms, we performed the study in triplicate at each time point for mock-, SARS-CoV-, and DHOV-infected cultures, yielding a total of 27 arrays.
+Mock-infected cells were compared to cells infected with SARS-CoV or DHOV at each time point. 
 
-Utilizamos los datos de 
-Affymetrix Human Genome U133 Plus 2.0 Array annotation data (chip hgu133plus2)
+The microarrays used were Affymetrix Human Genome U133 Plus 2.0 Array annotation data (chip hgu133plus2)   
 http://bioconductor.org/packages/release/data/annotation/html/hgu133plus2.db.html
+https://www.affymetrix.com/support/technical/datasheets/human_datasheet.pdf
+
+## Methods
+
+We describe now the workflow followed:  
+
+** 1 - Identify the groups and match groups to files.  
+There are 27 arrays were analyzed as 9 separate groups (mock-, SARS-CoV-infected, and DHOV-infected cells at 12, 24, and 48 hrs).
 
 
-```{r eval = FALSE}
+
+```{r eval = FALSE, include=FALSE}
 
 url <- "https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE17400&format=file"
 utils::download.file(url, destfile = "data.tar", mode="wb") 
@@ -85,13 +104,8 @@ utils::untar("data.tar", exdir = "data")
 
 ```
 
-## 1. Identificar que grupos hay y a qué grupo pertenece cada muestra.
 
-"For statistical purposes, all 27 arrays were analyzed as 18 separate groups (mock-, SARS-CoV-infected, and DHOV-infected cells at 12, 24, and 48 hrs)." 
-
-Following thar criteria we create 18 group, with the 9 different combinations an using the sets 1 and 2 for the new set "a" and the set 3 for the new set "b".
-
-```{r}
+```{r echo=FALSE}
 targets <- read.csv2("targets.csv", header = TRUE, sep = ";") 
 knitr::kable(targets, booktabs = TRUE,
              caption = 'Contenido de los target files utilizados para el análisis')
@@ -103,17 +117,17 @@ my.targets <-read.AnnotatedDataFrame(file.path(".","targets.csv"),
                                      sep=";") 
 rawData <- read.celfiles(celFiles, phenoData = my.targets)
 ```
-2. Control de calidad de los datos crudos
+** 2 - Quality control of the raw data
 
-Análisis de calidad.
+We perform a quality control of the data with the package arrayQualityMetrics. The results can be found on the apendix. 
 
-```{r QCRaw, message=FALSE, warning=FALSE, eval=FALSE}
+```{r QCRaw, message=FALSE, warning=FALSE, eval=FALSE, include=FALSE}
 require(arrayQualityMetrics)
 arrayQualityMetrics(rawData, outdir = file.path("./results", "QCDir.Raw"), force=TRUE)
 ```
 Análisis de componentes principales.
 
-```{r}
+```{r, echo=FALSE}
 plotPCA3 <- function (datos, labels, factor, title, scale,colores, size = 1.5, glineas = 0.25) {
   data <- prcomp(t(datos),scale=scale)
   # plot adjustments
@@ -141,12 +155,13 @@ colorsd <- brewer.pal(12, "Spectral")
 
 plotPCA3(exprs(rawData), labels = targets$ShortName, factor = targets$Group, 
          title="Raw data", scale = FALSE, size = 3, 
-         colores = c(rep(colorsq[1], 6),
-                     rep(colorsq[2], 6)))
+         colores = c(rep(colorsq[1], 3),
+                     rep(colorsq[2], 3),
+                     rep(colorsq[3], 3)))
 ```
 Observamos la distribución de intensidad de los arrays observando los boxplots.
 
-```{r}
+```{r echo=FALSE}
 
 boxplot(rawData, cex.axis=0.5, las=2,  which="all", 
          col = c(rep(colorsd[1], 3), 
@@ -154,7 +169,10 @@ boxplot(rawData, cex.axis=0.5, las=2,  which="all",
                  rep(colorsd[3], 3),
                  rep(colorsd[4], 3),
                  rep(colorsd[5], 3),
-                 rep(colorsd[6], 3)),
+                 rep(colorsd[6], 3),
+                 rep(colorsd[7], 3),
+                 rep(colorsd[8], 3),
+                 rep(colorsd[9], 3)),
          main="Distribution of raw intensity values")
 
 
@@ -163,21 +181,22 @@ boxplot(rawData, cex.axis=0.5, las=2,  which="all",
 
 3. Normalización
 
-```{r}
+```{r include=FALSE}
 eset_rma <- rma(rawData)
 ```
 
 4. [Control de calidad de los datos normalizados] (opcional)
 
 
-```{r eval=FALSE}
+```{r eval=FALSE, include = FALSE}
 arrayQualityMetrics(eset_rma, outdir = file.path("./results", "QCDir.Norm"), force=TRUE)
 ```
-```{r}
+```{r echo=FALSE}
 plotPCA3(exprs(eset_rma), labels = targets$ShortName, factor = targets$Group, 
          title="Normalized data", scale = FALSE, size = 3, 
-         colores = c(rep(colorsq[1], 6),
-                     rep(colorsq[2], 6)))
+         colores = c(rep(colorsq[1], 3),
+                     rep(colorsq[2], 3),
+                     rep(colorsq[3], 3)))
 
 boxplot(eset_rma, cex.axis=0.5, las=2,  which="all", 
          col = c(rep(colorsd[1], 3), 
@@ -185,7 +204,10 @@ boxplot(eset_rma, cex.axis=0.5, las=2,  which="all",
                  rep(colorsd[3], 3),
                  rep(colorsd[4], 3),
                  rep(colorsd[5], 3),
-                 rep(colorsd[6], 3)),
+                 rep(colorsd[6], 3),
+                 rep(colorsd[7], 3),
+                 rep(colorsd[8], 3),
+                 rep(colorsd[9], 3)),
          main="Distribution of raw intensity values")
 
 ```
@@ -193,7 +215,7 @@ boxplot(eset_rma, cex.axis=0.5, las=2,  which="all",
 5. Filtraje no específico [opcional]
 6. Identificación de genes diferencialmente expresados
 
-```{r}
+```{r echo=FALSE}
 sds <- apply (exprs(eset_rma), 1, sd)
 sdsO<- sort(sds)
 plot(1:length(sdsO), sdsO, main="Distribution of variability for all genes",
@@ -212,7 +234,7 @@ write.csv(exprs(eset_rma), file="./results/normalized.Data.csv")
 write.csv(exprs(eset_filtered), file="./results/normalized.Filtered.Data.csv")
 save(eset_rma, eset_filtered, file="./results/normalized.Data.Rda")
 ```
-```{r}
+```{r echo=FALSE}
 if (!exists("eset_filtered"))
   load (file = "./results/normalized.Data.Rda")
 
@@ -223,16 +245,19 @@ colnames(designMat) <- sub("Group", "", colnames(designMat))
 print(designMat)
 
 cont.matrix <- makeContrasts (
-  S12vsM12 =  ((SarsCoV12a+SarsCoV12b) - (Mock12a + Mock12b))- 1.5*(Mock12a - Mock12b),
-  S24vsM24 =  ((SarsCoV24a+SarsCoV24b) - (Mock24a + Mock24b))- 1.5*(Mock24a - Mock24b),
-  S48vsM48 =  ((SarsCoV48a+SarsCoV48b) - (Mock48a + Mock48b))- 1.5*(Mock48a - Mock48b),
+  S12vsM12 =  SarsCoV12 - Mock12,
+  S24vsM24 =  SarsCoV24 - Mock24,
+  S48vsM48 =  SarsCoV48 - Mock48,
+  D12vsM12 =  DOHV12 - Mock12,
+  D24vsM24 =  DOHV24 - Mock24,
+  D48vsM48 =  DOHV48 - Mock48,
   levels = designMat
 )
 print(cont.matrix
 )
 ```
-```{r}
-cont.names <- c("S12vsM12", "S24vsM24", "S48vsM48")
+```{r echo=FALSE}
+cont.names <- names(cont.matrix[2,])  
 cont.n <- length(cont.names)
 require(limma)
 fit<-lmFit(eset_filtered, designMat)
@@ -251,7 +276,7 @@ for (i in 1:cont.n) {
 
 ```
 
-```{r GeneAnnotation, message=FALSE, warning=FALSE}
+```{r GeneAnnotation, message=FALSE, warning=FALSE, echo=FALSE}
 annotatedTopTable <- function(topTab, anotPackage)
 {
   topTab <- cbind(PROBEID=rownames(topTab), topTab)
@@ -263,7 +288,7 @@ return(annotatedTopTab)
 }
 ```
 
-```{r annotateTopTables}
+```{r annotateTopTables, echo=FALSE}
 anno.list <- list()
 for (i in 1:cont.n) {
   anno.list[[i]] <- annotatedTopTable(cont.list[[i]], anotPackage="hgu133plus2.db")
@@ -273,14 +298,14 @@ write.csv(anno.list[i], file=paste("./results/topAnnotated_",cont.names[i],".csv
 ```
 
 
-```{r annotatedTop}
+```{r annotatedTop, echo=FALSE}
 for (i in 1:cont.n) {
   print(paste('Annotations added to results topTable for the comparison: ',cont.names[[i]]))
   b <- anno.list[[i]]
   print(head(b[order(b$adj.P.Val),][1:5,1:4]))
 }
 ```
-```{r}
+```{r echo=FALSE}
 for (i in 1:cont.n) {
 geneSymbols <- select(hgu133plus2.db, rownames(fit.main), c("SYMBOL"))
 SYMBOLS<- geneSymbols$SYMBOL
@@ -293,7 +318,7 @@ abline(v=c(-1,1))
 
 7. Anotación de los resultados
 8. Comparación entre distintas comparaciones (si hay más de una comparación, ver que genes han sido seleccionados en más de una comparación)
-```{r}
+```{r echo=FALSE}
 
 res<-decideTests(fit.main, method="separate", adjust.method="fdr", p.value=0.05, lfc=1.5)
 sum.res.rows<-apply(res,1,sum)
@@ -302,16 +327,21 @@ res.down<-res[sum.res.rows<0,]
 res.selected<- res[sum.res.rows!=0,]
 print(summary(res))
 
-vennDiagram (res.up, cex=0.9)
-title("Genes in common between the three comparisons\n Genes up regulated with FDR < 0.05 and logFC > 1.5")
-vennDiagram (res.down, cex=0.9)
-title("Genes in common between the three comparisons\n Genes down regulated with FDR < 0.05 and logFC > 1.5")
+vennDiagram (res.up[,1:3], cex=0.9)
+title("Genes in common between the three comparisons\n Sars-CoV vs Mock \n Genes up regulated with FDR < 0.05 and logFC > 1.5")
+vennDiagram (res.down[,1:3], cex=0.9)
+title("Genes in common between the three comparisons\n Sars-CoV vs Mock \nGenes down regulated with FDR < 0.05 and logFC > 1.5")
+
+vennDiagram (res.up[,4:6], cex=0.9)
+title("Genes in common between the three comparisons\n DOHV vs Mock \nGenes up regulated with FDR < 0.05 and logFC > 1.5")
+vennDiagram (res.down[,4:6], cex=0.9)
+title("Genes in common between the three comparisons\n DOHV vs Mock \nGenes down regulated with FDR < 0.05 and logFC > 1.5")
 
 ```
 
 Heatmaps
 
-```{r}
+```{r echo=FALSE}
 probesInHeatmap <- rownames(res.selected)
 HMdata <- exprs(eset_filtered)[rownames(exprs(eset_filtered)) %in% probesInHeatmap,]
 
@@ -327,7 +357,7 @@ write.csv(HMdata, file = file.path("./results/data4Heatmap.csv"))
 9. Análisis de significación biológica (“Gene Enrichment Analysis”)
 
 
-```{r selectGenes}
+```{r selectGenes, echo=FALSE}
 listOfSelected <- list()
 for (i in 1:cont.n) {
   # select the toptable
@@ -347,7 +377,7 @@ for (i in 1:cont.n) {
 sapply(listOfSelected, length)
 ```
 
-# ```{r}
+# ```{r echo=FALSE}
 # geneList <- listOfSelected[[3]]
 # gene <- names(geneList)
 # 
@@ -361,7 +391,7 @@ sapply(listOfSelected, length)
 # 
 # ```
 # 
-# ```{r}
+# ```{r echo=FALSE}
 # geneList <- listOfSelected[[3]]
 # gene <- names(geneList)
 # edo <- enrichDGN(gene)
@@ -380,11 +410,25 @@ sapply(listOfSelected, length)
 # cowplot::plot_grid(p1, p2, p3, ncol=3, labels=LETTERS[1:3], rel_widths=c(.8, .8, 1.2))
 # ```
 
-```{r}
+```{r echo=FALSE}
 geneList <- listOfSelected[[3]]
 gene <- names(geneList)
 edo <- enrichDGN(gene)
 upsetplot(edo)
 ```
+
+# Apendix
+\begin{center}
+## Raw data quality control
+![Raw data quality control](images/raw_report.png)
+
+
+
+## Normalized data quality control
+![Normalized data quality control](images/nom_report.png){#id .class width=50% height=50%}
+
+\end{center}
+
+# References
 
 
