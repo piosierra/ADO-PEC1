@@ -1,7 +1,7 @@
 ---
 title: "Case-Study-for-ADO-PCE-1: Global Gene Expression of 2B4 Cells in Response to SARS-CoV Infection"
 author: "Pío Sierra"
-date: "30/4/2020"
+date: "3/5/2020"
 output:
   pdf_document:
     toc: true
@@ -123,8 +123,8 @@ utils::untar("data.tar", exdir = "data")
 
 ```{r echo=FALSE}
 targets <- read.csv2("targets.csv", header = TRUE, sep = ";") 
-knitr::kable(targets, booktabs = TRUE,
-             caption = 'Content of the targe file used for the analysis')
+kable_styling(knitr::kable(targets, booktabs = TRUE,
+                            caption = 'Content of the targe file used for the analysis'),font_size = 10)
 ```
 ```{r include =FALSE}
 library(oligo)
@@ -137,15 +137,16 @@ rawData <- read.celfiles(celFiles, phenoData = my.targets)
 ```
 **b) Quality control of the raw data.**  
 
-We perform a quality control of the data with the package arrayQualityMetrics. The results can be found on the apendix. There two marks on two of the samples, but we decided to use all the samples as none of them had issues with the three metrics, and they wre used on the reference study. A deeper analysis might be performed to clarify the correctness of this data.
+We perform a quality control of the data with the package arrayQualityMetrics. The results can be found on the apendix.  
+There are two marks on two of the samples (Fig.1), but we decided to use all the samples as none of them had issues with the three metrics, and they were used on the reference study. A deeper analysis might be performed to clarify the correctness of this data.
 
 ```{r QCRaw, message=FALSE, warning=FALSE, eval=FALSE, include=FALSE}
 require(arrayQualityMetrics)
 arrayQualityMetrics(rawData, outdir = file.path("./results", "QCDir.Raw"), force=TRUE)
 ```
-We also performed a Principal Components Analysis and boxplot proyection that did not show any special problems with the data.
+We also performed a Principal Components Analysis and boxplot proyection that did not show any special problems with the data. (Fig. 14)
 
-```{r, echo=FALSE}
+```{r, include=FALSE}
 plotPCA3 <- function (datos, labels, factor, title, scale,colores, size = 1.5, glineas = 0.25) {
   data <- prcomp(t(datos),scale=scale)
   # plot adjustments
@@ -170,21 +171,24 @@ plotPCA3 <- function (datos, labels, factor, title, scale,colores, size = 1.5, g
 colorsq <- brewer.pal(12, "Dark2")
 colorss <- brewer.pal(12, "YlOrRd")
 colorsd <- brewer.pal(12, "Spectral")
-
-plotPCA3(exprs(rawData), labels = targets$ShortName, factor = targets$Group, 
+png("figures/PCAraw.png", width = 680, height = 680)
+print(plotPCA3(exprs(rawData), labels = targets$ShortName, factor = targets$Group, 
          title="Raw data", scale = FALSE, size = 3, 
          colores = c(rep(colorsq[1], 3),
                      rep(colorsq[2], 3),
-                     rep(colorsq[3], 3)))
+                     rep(colorsq[3], 3))))
+dev.off()
 ```
 
 
-And now we examine the intensity distribution on the arrays chcking the boxplots.  
+
+To analize the intensity distribution on the arrays we used boxplots for each of the datasets. (Fig. 16)   
 
 
-```{r echo=FALSE}
 
-boxplot(rawData, cex.axis=0.5, las=2,  which="all", 
+```{r include=FALSE}
+png("figures/boxplotraw.png", width = 680, height = 680)
+print(boxplot(rawData, cex.axis=0.5, las=2,  which="all", 
          col = c(rep(colorsd[1], 3), 
                  rep(colorsd[2], 3), 
                  rep(colorsd[3], 3),
@@ -194,11 +198,14 @@ boxplot(rawData, cex.axis=0.5, las=2,  which="all",
                  rep(colorsd[7], 3),
                  rep(colorsd[8], 3),
                  rep(colorsd[9], 3)),
-         main="Distribution of raw intensity values")
+         main="Distribution of raw intensity values"))
+dev.off()
 
 
 
 ```
+
+
 
 **c) Data Normalization.**   
 
@@ -209,22 +216,25 @@ eset_rma <- rma(rawData)
 
 **d) Quality control of the normalized data.**  
 
-We repoeat the same analysis with the normalized data. As expected now the first component accounts for less total variability, the percentage of explained variability has decreased with respect to PCA performed on raw data. Similarly the boxplots appear with similar aspect. Which suggest the distribution of the normalized intensities is the same in all samples.
+We repeat the same analysis with the normalized data. As expected now the first component accounts for less total variability, the percentage of explained variability has decreased with respect to PCA performed on raw data. Similarly the boxplots appear with similar aspect. Which suggest the distribution of the normalized intensities is the same in all samples.
 
 
 
 ```{r eval=FALSE, include = FALSE}
 arrayQualityMetrics(eset_rma, outdir = file.path("./results", "QCDir.Norm"), force=TRUE)
 ```
-```{r echo=FALSE}
-plotPCA3(exprs(eset_rma), labels = targets$ShortName, factor = targets$Group, 
+```{r include=FALSE}
+png("figures/PCAnorm.png", width = 680, height = 680)
+print(plotPCA3(exprs(eset_rma), labels = targets$ShortName, factor = targets$Group, 
          title="Normalized data", scale = FALSE, size = 3, 
          colores = c(rep(colorsq[1], 3),
                      rep(colorsq[2], 3),
-                     rep(colorsq[3], 3)))
+                     rep(colorsq[3], 3))))
+dev.off()
 ```
-```{r echo=FALSE}
-boxplot(eset_rma, cex.axis=0.5, las=2,  which="all", 
+```{r include=FALSE}
+png("figures/boxplotnorm.png", width = 680, height = 680)
+print(boxplot(eset_rma, cex.axis=0.5, las=2,  which="all", 
          col = c(rep(colorsd[1], 3), 
                  rep(colorsd[2], 3), 
                  rep(colorsd[3], 3),
@@ -234,7 +244,8 @@ boxplot(eset_rma, cex.axis=0.5, las=2,  which="all",
                  rep(colorsd[7], 3),
                  rep(colorsd[8], 3),
                  rep(colorsd[9], 3)),
-         main="Distribution of raw intensity values")
+         main="Distribution of raw intensity values"))
+dev.off()
 
 ```
 
@@ -252,6 +263,7 @@ abline(v=length(sds)*c(0.9,0.95))
 ```
 
 And we use the function nsFilter from the bioconductor package genefilter to remove genes based on a variability threshold. As we have the annotation package be use it also to remove probesets which do not have a gene identifier associated.   
+
 After that we save the normalized and filtered data on the results folder.
 
 
@@ -270,6 +282,7 @@ write.csv(exprs(eset_filtered), file="./results/normalized.Filtered.Data.csv")
 **f) Definition of the experimental setup.**  
 
 We use the Linear Models for Microarrays method, as implemented in the limma package [@law_rna-seq_2018] is used to select differential expressed genes.  
+
 The design matrix can be defined manually or from a factor variable that may have been introduced in the “targets” file with this aim created specifically for it. In this study that “Group” variable is a combination of the two experimental conditions, Infection Status and time which are jointly represented as one factor with 9 levels.
 
 ```{r echo=FALSE}
@@ -463,7 +476,7 @@ Here we describe some of the enrichment options for the clusterProfiler package:
 * groupGO, enrichGO and gseGO: GO analyses for organisms that have an OrgDb object available.
 
 Once we have prepared and enriched the data following their instructions, we perform a series of example analysis.  
-The most interesting is with `browseKEGG` to be able to whatch the relevant overexpressed genes in a certain pathway. 
+The most interesting is with `browseKEGG` to be able to whatch the relevant overexpressed genes in a certain pathway. As an example we have included the results for `Influenza A`, one of the pathways expressed. (Fig. 18)
 
 ```{r selectGenes, echo=FALSE}
 listOfSelected <- list()
@@ -484,9 +497,9 @@ for (i in 1:cont.n) {
 }
 sapply(listOfSelected, length)
 ```
+ We have no significant results for D12vsM12 and hence there are no files for it.
 
-
-```{r echo=FALSE}
+```{r eval= FALSE, echo=FALSE}
 for (i in 1:cont.n) {
 geneList <- listOfSelected[[i]]
 gene <- names(geneList)
@@ -499,7 +512,7 @@ dev.off()
 }
 }
 ```
-```{r echo=FALSE}
+```{r eval= FALSE, echo=FALSE}
 for (i in 1:cont.n) {
 geneList <- listOfSelected[[i]]
 gene <- names(geneList)
@@ -512,7 +525,7 @@ dev.off()
 }
 
 ```
-```{r echo=FALSE}
+```{r eval=FALSE, echo=FALSE}
 
 kk <- enrichKEGG(gene         = gene,
                  organism     = 'hsa',
@@ -528,7 +541,9 @@ head(kk)
 # Results 
 
 The results can be found on the folders `results` (data files) and `figures`.  
-**Results:**  
+
+**Results:**   
+
 * QCDir.Norm: Folder with the arrayQualityMetrics report for normalized data.  
 * QCDir.Raw: Folder with the arrayQualityMetrics report for raw data.  
 * normalizedData.csv: full set of normalized Data.
@@ -547,21 +562,61 @@ The results can be found on the folders `results` (data files) and `figures`.
 
 **Figures**
 
+
 ![Raw data quality control](figures/raw_report.png)
-![Normalized data quality control](figures/nom_report.png)
+\begin{center}Fig.1: Raw data quality control\end{center}
+
+![Normalized data quality control](figures/nom_report.png) 
+\begin{center}Fig.2: Normalized data quality control\end{center}
+
 ![Heatmap of downregulated genes](figures/global_heatmap.png)
-![Bar plot of DGN Enriched data for D24vsM24](figures/enrichDGND24vsM24.png)
-![Bar plot of DGN Enriched data for D48vsM48](figures/enrichDGND48vsM48.png)
-![Bar plot of DGN Enriched data for S12vsM24](figures/enrichDGNS12vsM12.png)
-![Bar plot of DGN Enriched data for S24vsM24](figures/enrichDGNS24vsM24.png)
-![Bar plot of DGN Enriched data for S48vsM24](figures/enrichDGNS48vsM48.png)
+\begin{center}Fig.3: Heatmap of downregulated genes\end{center}
+ 
+![Barplot of DGN Enriched data for D24vsM24](figures/enrichDGND24vsM24.png)
+\begin{center}Fig.4: Bar plot of DGN Enriched data for D24vsM24\end{center}
+ 
+![Barplot of DGN Enriched data for D48vsM48](figures/enrichDGND48vsM48.png)
+\begin{center}Fig.5: Barplot of DGN Enriched data for D48vsM48\end{center}
+ 
+![Barplot of DGN Enriched data for S12vsM12](figures/enrichDGNS12vsM12.png)
+\begin{center}Fig.6: Barplot of DGN Enriched data for S12vsM12\end{center}
+ 
+![Barplot of DGN Enriched data for S24vsM24](figures/enrichDGNS24vsM24.png)
+\begin{center}Fig.7: Barplot of DGN Enriched data for S24vsM24\end{center}
+ 
+![Barplot of DGN Enriched data for S48vsM48](figures/enrichDGNS48vsM48.png)
+\begin{center}Fig.8: Barplot of DGN Enriched data for S48vsM48\end{center}
+ 
 ![Enriched map for D24vsM24](figures/DGNnetD24vsM24.png)
+\begin{center}Fig.9: Enriched map for D24vsM24\end{center} 
+ 
 ![Enriched map for D48vsM48](figures/DGNnetD48vsM48.png)
+\begin{center}Fig.10: Enriched map for D48vsM48\end{center}
+ 
 ![Enriched map for S12vsM12](figures/DGNnetS12vsM12.png)
+ \begin{center}Fig.11: nriched map for S12vsM12\end{center} 
+ 
 ![Enriched map for S24vsM24](figures/DGNnetS24vsM24.png)
+ \begin{center}Fig.12: Enriched map for S24vsM24\end{center}
+ 
 ![Enriched map for S48vsM48](figures/DGNnetS48vsM48.png)
+ <center>**Fig.13: Enriched map for S48vsM48\end{center}
+ 
+![PCA raw](figures/PCAraw.png)
+\begin{center}Fig.14: PCA for raw data\end{center}
 
+![PCA Norm](figures/PCAnorm.png)
+\begin{center}Fig.15: PCA for Normalized data\end{center}
 
+![Boxplot raw](figures/boxplotraw.png)
+\begin{center}Fig.16: Boxplot for raw data\end{center}
+ 
+![Boxplot Norm](figures/boxplotnorm.png)
+
+\begin{center}Fig.17: Boxplot for Normalized data\end{center}
+
+![Influenza A](figures/kegg.png)
+\begin{center}Fig.18: Influenza A pathway\end{center}
 # Discusion  
 
 `limma` offers a straightforward approach to gene expression analysis. Another great surprise was the large number of possibilities that the `clusterProfiler` package includes to perform deeper pathway analysis starting from the results of the experiment.
